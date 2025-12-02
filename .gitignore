@@ -1,0 +1,10 @@
+# Ignore Java Compiled Files
+*.class
+
+# Ignore Python Artifacts (Future proofing)
+__pycache__/
+*.pyc
+
+# Ignore OS Junk
+.DS_Store
+Thumbs.db

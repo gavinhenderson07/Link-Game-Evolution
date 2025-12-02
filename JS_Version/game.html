@@ -1,0 +1,878 @@
+<!-- CSCE 31903 Programming Paradigms 		-->
+<!-- Fall 2025 								-->
+<!-- Assignment 6 starter code 				-->
+<!-- Name: Gavin Henderson-->
+<!-- Date: 11/24/2025-->
+
+<head>
+	<title>Link Game!</title>
+	<meta charset="UTF-8">
+
+
+	<style>
+		body {
+			font-family: sans-serif;
+			text-align: center;
+			padding: 20px;
+		}
+		#dropZone {
+			width: 600px;
+			height: 150px;
+			border: 2px dashed #888;
+			margin: 20px auto;
+			line-height: 150px;
+			color: #888;
+			font-size: 20px;
+			border-radius: 10px;
+			user-select: none;
+		}
+		#dropZone.hover {
+			border-color: #333;
+			color: #333;
+		}
+		canvas {
+			display: block;
+			margin: 20px auto;
+			border: 1px solid black;
+		}
+	</style>
+</head>
+<body>
+
+<br>
+<canvas id="myCanvas" width="1000" height="500" style="border:1px solid #cccccc;"></canvas>
+<br>
+
+<h2>Drag your map JSON file here</h2>
+<div id="dropZone">Drop map file here</div>
+
+<script type="text/javascript">
+
+class Sprite
+{
+	constructor(x1, y1, w1, h1, image_url)
+	{
+		this.x = x1
+		this.y = y1
+		this.w = w1
+		this.h = h1
+		this.image = new Image()
+		this.image.src = image_url
+	}
+	
+	//functions that must be implemented in the child classes, no abstract methods in JS
+	//throw an error if not implemented
+	update(model){
+		console.error("update() is to be implemented in child classes")
+		return true
+	}
+
+	draw(ctx, scrollX, scrollY){
+		console.error("draw() is to be implemented in child classes")
+		return true
+	}
+
+	manageCollision(sprite){
+		console.error("manageCollision() is to be implemented in child classes")
+		return true
+	}
+
+	marshal(){
+		console.error("marshal() is to be implemented in child classes")
+		return true
+	}
+
+	getImage(){
+		console.error("getImage() is to be implemented in child classes")
+		return null
+	}
+
+	toString(){
+		console.error("toString() is to be implemented in child classes")
+		return null
+	}
+
+	//collision detection between two sprites
+	collisionDetection(sprite){
+		if (this != sprite){
+			let spriteLeft = sprite.x
+			let spriteRight = sprite.x + sprite.w
+			let spriteTop = sprite.y
+			let spriteBottom = sprite.y + sprite.h
+
+			if (this.x + this.w > spriteLeft && this.x < spriteRight && this.y + this.h > spriteTop && this.y < spriteBottom){
+				return sprite
+			}
+		}
+		return null
+	}
+
+	//class checkers
+	isTree(){ return false;}
+	isLink(){ return false;}
+	isBoomerang(){ return false;}
+	isTreasureChest() {return false;}
+}
+
+class Link extends Sprite
+{
+	
+
+	constructor()
+	{
+		super(100, 100, 40, 50, "images/link1.png")
+		this.frame = 0
+		this.speed = 10.0
+		this.direction = "down"
+		//set previous coordinates to origninal upon creation
+		this.px = this.x
+		this.py = this.y
+
+		//load in images once
+		if (Link.linkDown === undefined){
+			try{
+				Link.linkDown = []
+				for (let i = 1; i <= 5; i++){
+					let img = new Image()
+					img.src = "images/link" + i + ".png"
+					Link.linkDown.push(img)
+				}
+
+				Link.linkLeft = []
+				for (let i = 12; i <= 16; i++){
+					let img = new Image()
+					img.src = "images/link" + i + ".png"
+					Link.linkLeft.push(img)
+				}
+
+				Link.linkRight = []
+				for (let i = 23; i <= 27; i++){
+					let img = new Image()
+					img.src = "images/link" + i + ".png"
+					Link.linkRight.push(img)
+				}
+
+				Link.linkUp = []
+				for (let i = 34; i <= 38; i++){
+					let img = new Image()
+					img.src = "images/link" + i + ".png"
+					Link.linkUp.push(img)
+				}
+
+			}catch(error){
+				console.error("error loading link images: " + error.message)
+				alert("Error loading in link images")
+			}
+		}
+	}
+
+	//drawing the correct frame based on direction
+	draw(ctx, scrollX, scrollY){
+		let link_img
+		switch(this.direction){
+			case "down":
+				link_img = Link.linkDown[this.frame]
+				break
+			case "up":
+				link_img = Link.linkUp[this.frame]
+				break
+			case "left":
+				link_img = Link.linkLeft[this.frame]
+				break
+			case "right":
+				link_img = Link.linkRight[this.frame]
+				break
+		}
+
+		//draw the image
+		if (link_img !== undefined){
+			ctx.drawImage(link_img, this.x - scrollX, this.y - scrollY, this.w, this.h)
+		}
+	}
+
+	//grabbing the frame based on links direction
+	getImage(){
+		let link_img
+		switch(this.direction){
+			case "down":
+				link_img = Link.linkDown[this.frame]
+				break
+			case "up":
+				link_img = Link.linkUp[this.frame]
+				break
+			case "left":
+				link_img = Link.linkLeft[this.frame]
+				break
+			case "right":
+				link_img = Link.linkRight[this.frame]
+				break
+		}
+		return link_img
+	}
+	
+	//getters and setters for previous x and y
+	getPX(){
+		return this.px
+	}
+
+	getPY(){
+		return this.py
+	}
+
+	setPX(X){
+		this.px = X
+	}
+
+	setPY(Y){
+		this.py = Y
+	}
+
+	//set the direction
+	setDirection(direction){
+		this.direction = direction
+	}
+
+	//update frame
+	updateFrame(){
+		this.frame = (this.frame + 1) % 5
+	}
+
+	resetFrame(){
+		this.frame = 0
+	}
+
+	//functions for link's movement
+
+	moveUp(){
+		this.setDirection("up")
+		this.y -= this.speed
+		this.updateFrame()
+	}
+
+	moveDown(){
+		this.setDirection("down")
+		this.y += this.speed
+		this.updateFrame()
+	}
+
+	moveLeft(){
+		this.setDirection("left")
+		this.x -= this.speed
+		this.updateFrame()
+	}
+
+	moveRight(){
+		this.setDirection("right")
+		this.x += this.speed
+		this.updateFrame()
+	}
+
+	//manage the collision based on the type of sprite
+	manageCollision(sprite){
+		if (sprite.isTree()){
+			let prevRight = this.px + this.w
+			let prevLeft = this.px
+			let prevTop = this.py
+			let prevBottom = this.py + this.h
+
+			if (prevRight <= sprite.x){
+				this.x = sprite.x - this.w
+			}
+			else if(prevLeft >= sprite.x + sprite.w){
+				this.x = sprite.x + sprite.w
+			}
+			else if(prevBottom <= sprite.y){
+				this.y = sprite.y - this.h
+			}
+			else if(prevTop >= sprite.y + sprite.h){
+				this.y = sprite.y + sprite.h
+			}
+			
+		}
+
+		if (sprite.isTreasureChest()){
+			let chest = sprite
+			if (chest.opened == true){
+				if (chest.countdown <= 75){
+					return
+				}
+				this.x = this.px
+				this.y = this.py
+			}
+		}
+	}
+
+	update(model) //sit_still
+	{
+		return true
+	}
+	
+	marshal(){
+		return null
+	}
+
+	toString(){
+		return "Link is at (" + this.x + ", " + this.y + ") facing " + this.direction + " on frame " + this.frame
+	}
+
+	isLink(){ return true;}
+}
+
+class Tree extends Sprite
+{
+
+	//constructor take in data because of no edit mode, reads data from json
+	constructor(data){
+		super(data.x, data.y, data.w, data.h, "images/tree.png")
+
+		//make treeImg static within class to only load once
+		//same logic applies to other classes with images
+		if (Tree.treeImg === undefined){
+			try{
+				Tree.treeImg = new Image()
+				Tree.treeImg.src = "images/tree.png"
+			}catch(error){
+				console.error("error loading tree image: " + error.message)
+				alert("Error loading in tree image")
+			}
+		}
+	}
+
+	draw(ctx, scrollX, scrollY){
+		if (Tree.treeImg !== undefined){
+			ctx.drawImage(Tree.treeImg, this.x - scrollX, this.y - scrollY, this.w, this.h)
+		}
+	}
+
+	getImage(){
+		return Tree.treeImg
+	}
+
+	marshal(){
+		//no saving in JS for this assignment, return empty object
+		return{}
+	}
+
+
+	toString(){
+		return "Tree (x,y) = (" + this.x + ", " + this.y + "), w = " + this.w + ", h = " + this.h;
+	}
+
+	update(model){ return true;}
+
+	manageCollision(sprite){ return null; } //trees dont need this
+
+	isTree(){ return true;}
+
+	
+}
+
+class TreasureChest extends Sprite
+{
+	//load in data from json
+	constructor(data){
+		super(data.x, data.y, data.w, data.h, "images/treasurechest.png")
+
+		this.opened = false
+		this.countdown = 0
+		this.rupeeScore = 0
+		TreasureChest.rupeeScore = 0
+
+		if (TreasureChest.chestImgClosed === undefined){
+			try{
+				TreasureChest.chestImgClosed = new Image()
+				TreasureChest.chestImgClosed.src = "images/treasurechest.png"
+
+				TreasureChest.chestImgOpened = new Image()
+				TreasureChest.chestImgOpened.src = "images/rupee.png"
+			}catch(error){
+				console.error("error loading in treassure chest image: " + error.message)
+				alert("Error loading in treasure chest image")
+			}
+		}
+	}
+
+	//getter for chests images
+	getImage(){
+		if (this.opened){
+			return TreasureChest.chestImgOpened
+		}
+		else{
+			return TreasureChest.chestImgClosed
+		}
+	}
+
+	draw(ctx, scrollX, scrollY){
+		if (this.opened){
+			ctx.drawImage(TreasureChest.chestImgOpened, this.x - scrollX, this.y - scrollY, this.w, this.h)
+		}
+		else{
+			ctx.drawImage(TreasureChest.chestImgClosed, this.x - scrollX, this.y - scrollY, this.w, this.h)
+		}
+	}
+
+	update(model){
+		if (this.opened){
+			this.countdown--
+			if (this.countdown <= 0){
+				return false
+			}
+		}
+		return true
+	}
+
+	//manage collision based on sprite
+	manageCollision(sprite){
+		if (sprite.isLink() || sprite.isBoomerang()){
+			if (this.opened == false){
+				this.opened = true
+				this.countdown = 80
+			}
+			else{
+				if (this.countdown <= 75){
+					if (sprite.isLink() || sprite.isBoomerang()){
+						TreasureChest.rupeeScore++
+						this.countdown = 1
+					}
+				}
+			}
+		}
+	}
+
+	marshal(){
+		//no saving functionality in the javascript project
+		return {}
+	}
+
+	toString(){
+		return "Treasure Chest (x,y) = (" + this.x + ", " + this.y + "), w = " + this.w + ", h = " + this.h + ", opened = " + this.opened
+	}
+
+	isTreasureChest() {return true;}
+
+}
+
+class Boomerang extends Sprite
+{
+	constructor(x, y, direction){
+		super(x, y, 20, 20, "images/boomerang1.png")
+		this.direction = direction
+		this.speed = 15.0
+		this.frame = 0
+		this.alive = true
+
+		if (Boomerang.boomerangImgs === undefined){
+			Boomerang.boomerangImgs = []
+			try{
+				for (let i = 1; i <= 4; i++){
+					let img = new Image()
+					img.src = "images/boomerang" + i + ".png"
+					Boomerang.boomerangImgs.push(img)
+				}
+			}catch(error){
+				console.error("error loading in boomerang images: " + error.message)
+				alert("Error loading in boomerang images")
+			}
+		}
+	}
+
+	draw(ctx, scrollX, scrollY){
+		let boomerang_img = Boomerang.boomerangImgs[this.frame]
+		if (boomerang_img !== undefined){
+			ctx.drawImage(boomerang_img, this.x - scrollX, this.y - scrollY, this.w, this.h)
+		}
+	}
+
+	updateFrame(){
+		this.frame = (this.frame + 1) % 4
+	}
+
+	//move boomerang in its direction
+	update(model){
+		switch(this.direction){
+			case "up":
+				this.y -= this.speed
+				break;
+			case "down":
+				this.y += this.speed
+				break;
+			case "left":
+				this.x -= this.speed
+				break;
+			case "right":
+				this.x += this.speed
+				break;
+		}
+		this.updateFrame()
+		return this.alive
+	}
+
+	//delete the boomerang upon collision
+	manageCollision(sprite){
+		if (sprite.isTree() || sprite.isTreasureChest()){
+			this.alive = false
+		}
+	}
+
+	getImage(){
+		return Boomerang.boomerangImgs[this.frame]
+	}
+
+	marshal(){
+		return null
+	}
+
+	toString(){
+		return "Boomerang (x,y) = (" + this.x + ", " + this.y + "), w = " + this.w + ", h = " + this.h + ", direction = " + this.direction
+	}
+
+	isBoomerang(){ return true;}
+}
+
+
+
+
+class Model
+{
+	constructor()
+	{
+		
+		//both mechanisms are provided so you can choose what works best for you
+		//make list of sprites, add link first
+		this.sprites = []
+		this.link = new Link()
+		this.sprites.push(this.link)
+
+	}
+
+	//give access to view and controller like Java
+	setView(view){
+		this.view = view
+	}
+
+	setController(controller){
+		this.controller = controller
+	}
+
+ 
+
+	update()
+	{
+		//iterate through all sprites and update
+		for (let i = 0; i < this.sprites.length; i++){
+			let sprite = this.sprites[i]
+			let valid = sprite.update(this)
+
+			if (!valid){
+				this.sprites.splice(i, 1)
+				//change index to account for the removed sprite
+				i--
+				continue
+			}
+
+			//check for collisions with sprites
+			for (let j = 0; j < this.sprites.length; j++){
+				let sprite2 = this.sprites[j]
+
+				if (sprite != sprite2){
+					if(sprite.collisionDetection(sprite2) != null){
+						sprite.manageCollision(sprite2)
+						sprite2.manageCollision(sprite)
+					}
+				}
+			}
+		}
+
+		//set screen edges
+		let rightEdge = this.view.scrollX + Game.SCREEN_WIDTH
+		let leftEdge = this.view.scrollX
+		let topEdge = this.view.scrollY
+		let bottomEdge = this.view.scrollY + Game.SCREEN_HEIGHT
+
+		//adjust the view scrolling from screen to screen
+		if (this.controller.key_right && this.link.x + this.link.w > rightEdge){
+			if (this.view.scrollX < Game.WORLD_WIDTH - Game.SCREEN_WIDTH){
+				this.view.setScroll(this.view.scrollX + Game.SCREEN_WIDTH, this.view.scrollY)
+
+				this.link.x = this.view.scrollX + 5
+			}
+		}
+		else if (this.controller.key_left && this.link.x < leftEdge){
+			if (this.view.scrollX > 0){
+				this.view.setScroll(this.view.scrollX - Game.SCREEN_WIDTH, this.view.scrollY)
+
+				this.link.x = Game.SCREEN_WIDTH - this.link.w - 12
+			}
+		}
+		else if (this.controller.key_down && this.link.y + this.link.h > bottomEdge){
+			if (this.view.scrollY < Game.WORLD_HEIGHT - Game.SCREEN_HEIGHT){
+				this.view.setScroll(this.view.scrollX, this.view.scrollY + Game.SCREEN_HEIGHT)
+
+				this.link.y = this.view.scrollY + 5
+			}
+		}
+		else if (this.controller.key_up && this.link.y < topEdge){
+			if (this.view.scrollY > 0){
+				this.view.setScroll(this.view.scrollX, this.view.scrollY - Game.SCREEN_HEIGHT)
+
+				this.link.y = Game.SCREEN_HEIGHT - this.link.h - 25
+			}
+		}
+	}
+
+	throwBoomerang(){
+		//calculate center of link and where to create boomerang (so its from the center of link)
+		let linkCenterX = this.link.x + this.link.w / 2
+		let linkCenterY = this.link.y + this.link.h / 2
+
+		let boomX = linkCenterX - 10
+		let boomY = linkCenterY - 10
+		let boomerang = new Boomerang(boomX, boomY, this.link.direction)
+		this.sprites.push(boomerang)
+	}
+
+	
+	
+	// this reads the json file. Note that turtleX and turtleY are stored in the .json file
+	// also note that f is each entry in the fishes array and f.x and f.y are the attributes of
+	// each object in that array
+	// if you've saved w and h in your .json, use those instead of hardcoding width and height
+	// this function is called upon the event of dragging/dropping the json file onto the page
+	loadMap(mapData) 
+	{
+		//clear the current sprites before loading from file
+		//add link so he is not lost
+		this.sprites = []
+		this.sprites.push(this.link)
+
+		//access list in the JSON obj
+		let loadList = mapData.sprites
+		let scale = 1000.0 / 700.0 //scale map due to the fact JS and java screens are different sizes
+
+		for (let i = 0; i < mapData.sprites.length; i++){
+			let obj = loadList[i]
+
+			//multiply x and width by scale to account for screen
+			obj.x = obj.x * scale
+			obj.w = obj.w * scale
+
+			//create object based on its type
+			if (obj.type === "tree"){
+				let tree = new Tree(obj)
+				this.sprites.push(tree)
+			}
+			else if (obj.type === "TreasureChest"){
+				let chest = new TreasureChest(obj)
+				this.sprites.push(chest)
+			}
+		}
+		console.log("Map loaded:", mapData);
+	}
+}
+
+
+
+
+class View
+{
+	constructor(model)
+	{
+		this.model = model
+		this.canvas = document.getElementById("myCanvas")
+		this.scrollX = 0
+		this.scrollY = 0
+	}
+
+
+	update()
+	{
+		let ctx = this.canvas.getContext("2d")
+		ctx.clearRect(0, 0, Game.SCREEN_WIDTH, Game.SCREEN_HEIGHT)
+		//dark green background fill color
+		ctx.fillStyle = "rgb(72, 152, 72)"
+		ctx.fillRect(0, 0, Game.SCREEN_WIDTH, Game.SCREEN_HEIGHT)
+		for (let i = 0; i < this.model.sprites.length; i++){
+			let sprite = this.model.sprites[i]
+			sprite.draw(ctx, this.scrollX, this.scrollY)
+		}
+
+		//set ctx values for rupee display
+		ctx.fillStyle = "yellow"
+		ctx.font = "bold 20px Verdana"
+		ctx.textAlign = "right"
+
+		let displayX = Game.SCREEN_WIDTH - 10
+		let displayY = 30
+
+		ctx.fillText("Rupees Collected: " + TreasureChest.rupeeScore, displayX, displayY)
+	}
+
+	setScroll(x, y){
+		this.scrollX = x
+		this.scrollY = y
+	}
+}
+
+
+
+
+
+
+
+class Controller
+{
+	constructor(model, view)
+	{
+		this.model = model
+		this.view = view
+		this.keepGoing = true
+		this.key_right = false
+		this.key_left = false
+		this.key_up = false
+		this.key_down = false
+		let self = this
+		view.canvas.addEventListener("click", function(event) { self.onClick(event) })
+		document.addEventListener('keydown', function(event) { self.keyDown(event) }, false)
+		document.addEventListener('keyup', function(event) { self.keyUp(event) }, false)
+	}
+
+	
+	//events for moevement and boomerang
+	keyDown(event)
+	{
+		if (event.keyCode >= 37 && event.keyCode <= 40 || event.keyCode == 32){
+			event.preventDefault()
+		}
+		if(event.keyCode == 39) 
+			this.key_right = true
+		else if(event.keyCode == 37) 
+			this.key_left = true
+		else if(event.keyCode == 38) 
+			this.key_up = true
+		else if(event.keyCode == 40) 
+			this.key_down = true
+		else if (event.keyCode == 32){
+			this.model.throwBoomerang()
+		}
+	}
+
+	keyUp(event)
+	{
+		if(event.keyCode == 39) 
+			this.key_right = false
+		else if(event.keyCode == 37) 
+			this.key_left = false
+		else if(event.keyCode == 38) 
+			this.key_up = false
+		else if(event.keyCode == 40) 
+			this.key_down = false
+	}
+
+	update()
+	{
+		//slight change from java code
+		//since i can access link, i will just call its methods here directly
+		//no need to make extra model methods
+		if (this.key_up){
+			this.model.link.moveUp()
+		}
+		else if (this.key_down){
+			this.model.link.moveDown()
+		}
+		else if (this.key_left){
+			this.model.link.moveLeft()
+		}
+		else if (this.key_right){
+			this.model.link.moveRight()
+		}
+		else{
+			this.model.link.resetFrame()
+		}
+		return this.keepGoing
+	}
+	
+}
+
+
+
+
+
+class Game
+{
+
+	//set static constants for access throughout classes
+	static SCREEN_WIDTH = 1000
+	static SCREEN_HEIGHT = 500
+	static WORLD_WIDTH = 2000
+	static WORLD_HEIGHT = 1000
+	constructor()
+	{
+		this.model = new Model();
+		this.view = new View(this.model);
+		this.controller = new Controller(this.model, this.view);
+
+		this.model.setView(this.view)
+		this.model.setController(this.controller)
+
+	
+		//this code will allow you to drag and drop your map instead of hardcoding it!
+		//do not change this code
+		var dropZone = document.getElementById("dropZone");
+		var self = this;
+
+		// Prevent default drag behaviors
+		["dragenter", "dragover", "dragleave", "drop"].forEach(function(eventName) {
+		  dropZone.addEventListener(eventName, function(e) { e.preventDefault(); e.stopPropagation(); });
+		});
+
+		// Highlight drop zone when dragging over
+		["dragenter", "dragover"].forEach(function(eventName) {
+		  dropZone.addEventListener(eventName, function() { dropZone.classList.add("hover"); });
+		});
+
+		["dragleave", "drop"].forEach(function(eventName) {
+		  dropZone.addEventListener(eventName, function() { dropZone.classList.remove("hover"); });
+		});
+
+		// Handle dropped files
+		dropZone.addEventListener("drop", function(e) {
+			var file = e.dataTransfer.files[0];
+			if (!file) return;
+			if (!file.name.endsWith(".json")) {
+				alert("Please drop your map JSON file here.");
+				return;
+			}
+
+			var reader = new FileReader();
+			reader.onload = function(ev) {
+				try {
+					var data = JSON.parse(ev.target.result);
+					self.model.loadMap(data);
+				} catch(err) {
+					alert("Error parsing JSON: " + err.message);
+				}
+			};
+			reader.readAsText(file);
+		});
+	}
+
+	onTimer()
+	{
+		let link = this.model.link
+		//store previous location for collisions
+		link.setPX(link.x)
+		link.setPY(link.y)
+
+
+		this.controller.update();
+		this.model.update();
+		this.view.update();
+	}
+}
+
+let game = new Game()
+let timer = setInterval(function() { game.onTimer() }, 40)
+
+</script>
+
+</body>
